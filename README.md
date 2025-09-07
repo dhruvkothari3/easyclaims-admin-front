@@ -1,73 +1,150 @@
-# Welcome to your Lovable project
+# EasyClaims
 
-## Project info
+A professional insurance claims management platform with separate public and admin interfaces.
 
-**URL**: https://lovable.dev/projects/58eb9c1e-5d0f-4f2d-b998-e9892123ab8b
+## Features
 
-## How can I edit this code?
+### Public Site
+- **Informational Pages**: Home, About, Services, FAQ, Contact, Privacy, Terms
+- **No Data Collection**: Contact page provides only communication links (phone, WhatsApp, email)
+- **Mobile-Friendly**: Responsive design for all devices
+- **SEO Optimized**: Proper meta tags, semantic HTML, and robots.txt
 
-There are several ways of editing your application.
+### Admin Portal  
+- **Secure Login**: Email/password authentication with token storage
+- **Customer Search**: Search by ID, phone, or name with 300ms debouncing
+- **Customer Details**: View customer information and all associated policies
+- **Private Routes**: Admin pages are not linked in public navigation
 
-**Use Lovable**
+## Environment Setup
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/58eb9c1e-5d0f-4f2d-b998-e9892123ab8b) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+1. Copy the environment template:
+```bash
+cp .env.example .env
 ```
 
-**Edit a file directly in GitHub**
+2. Configure environment variables:
+```bash
+# API Configuration
+VITE_API_BASE_URL=https://api.easyclaims.in
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+# Mock Mode
+VITE_USE_MOCKS=true  # Use "true" for development, "false" for production
+```
 
-**Use GitHub Codespaces**
+## Mock Mode
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+The application supports two modes:
 
-## What technologies are used for this project?
+### Development Mode (Mock Data)
+Set `VITE_USE_MOCKS=true` to use hardcoded mock data:
+- Login accepts any email/password combination
+- Returns sample customer and policy data
+- Perfect for development and testing
 
-This project is built with:
+### Production Mode (Live API)
+Set `VITE_USE_MOCKS=false` to use live API endpoints:
+- `POST /auth/login` - Authentication
+- `GET /customers/search?by=id|phone|name&q=...` - Customer search  
+- `GET /customers/:id/policies` - Customer policies
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Development
 
-## How can I deploy this project?
+```bash
+# Install dependencies
+npm install
 
-Simply open [Lovable](https://lovable.dev/projects/58eb9c1e-5d0f-4f2d-b998-e9892123ab8b) and click on Share -> Publish.
+# Start development server
+npm run dev
 
-## Can I connect a custom domain to my Lovable project?
+# Build for production
+npm run build
+```
 
-Yes, you can!
+## API Integration
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+When `VITE_USE_MOCKS=false`, the application expects these API endpoints:
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+### Authentication
+```
+POST /auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@easyclaims.in",
+  "password": "password"
+}
+
+Response: { "token": "jwt-token-here" }
+```
+
+### Customer Search
+```
+GET /customers/search?by=id|phone|name&q=search-query
+Authorization: Bearer <token>
+
+Response: [
+  {
+    "id": "customer-id",
+    "name": "Customer Name", 
+    "email": "customer@email.com",
+    "phone": "+91-9876543210",
+    "createdAt": "2024-01-15"
+  }
+]
+```
+
+### Customer Policies
+```
+GET /customers/:id/policies
+Authorization: Bearer <token>
+
+Response: [
+  {
+    "id": "policy-id",
+    "policyNumber": "POL-2024-001",
+    "type": "Health Insurance",
+    "premium": 25000,
+    "status": "Active",
+    "startDate": "2024-01-01", 
+    "endDate": "2024-12-31"
+  }
+]
+```
+
+## Security Features
+
+- **Private Admin Routes**: Admin pages are not accessible via public navigation
+- **Authentication Required**: All admin features require valid token
+- **SEO Protection**: `robots.txt` disallows admin routes, `noindex` on admin pages
+- **Token Management**: Secure token storage and automatic logout
+
+## Tech Stack
+
+- **React 18** with TypeScript
+- **Vite** for build tooling
+- **Tailwind CSS** for styling
+- **React Router** for navigation
+- **Shadcn/ui** components
+- **Lucide React** icons
+
+## Project Structure
+
+```
+src/
+├── components/          # Reusable UI components
+│   ├── ui/             # Shadcn/ui components
+│   └── layout/         # Layout components (Header, Footer)
+├── pages/              # Page components
+│   ├── admin/          # Admin portal pages
+│   └── *.tsx           # Public pages
+├── lib/                # Utilities and configuration
+│   ├── api.ts          # API client and mock data
+│   ├── auth.ts         # Authentication utilities
+│   └── env.ts          # Environment configuration
+└── hooks/              # Custom React hooks
+```
+
+## License
+
+© 2024 EasyClaims. All rights reserved.
