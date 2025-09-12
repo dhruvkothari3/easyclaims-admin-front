@@ -17,6 +17,7 @@ import TermsPage from "./pages/TermsPage";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminSearch from "./pages/admin/AdminSearch";
 import CustomerDetail from "./pages/admin/CustomerDetail";
+import AdminUpload from "./pages/admin/AdminUpload";
 
 import NotFound from "./pages/NotFound";
 
@@ -41,7 +42,8 @@ const App = () => (
           {/* Admin routes */}
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/search" element={<AdminSearch />} />
-          <Route path="/admin/customer/:id" element={<CustomerDetail />} />
+          <Route path="/admin/customers/:id" element={<CustomerDetail />} />
+          <Route path="/admin/upload" element={<AdminUpload />} />
           
           {/* Catch-all route */}
           <Route path="*" element={<NotFound />} />

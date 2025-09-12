@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
-import { auth } from "@/lib/auth";
+import { useAuthStore } from "@/stores/auth";
 import { Loader2 } from "lucide-react";
 
 const AdminLogin = () => {
@@ -15,6 +15,7 @@ const AdminLogin = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { setToken } = useAuthStore();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +23,7 @@ const AdminLogin = () => {
 
     try {
       const response = await api.login({ email, password });
-      auth.setToken(response.token);
+      setToken(response.token);
       toast({
         title: "Login Successful",
         description: "Welcome to the admin portal."
@@ -31,7 +32,7 @@ const AdminLogin = () => {
     } catch (error) {
       toast({
         title: "Login Failed",
-        description: "Invalid email or password. Please try again.",
+        description: error instanceof Error ? error.message : "Invalid email or password. Please try again.",
         variant: "destructive"
       });
     } finally {

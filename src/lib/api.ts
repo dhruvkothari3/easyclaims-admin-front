@@ -1,150 +1,103 @@
 import { env } from './env';
-import { auth } from './auth';
+import { useAuthStore } from '@/stores/auth';
+import type {
+  Company,
+  Customer,
+  Plan,
+  LoginRequest,
+  LoginResponse,
+  SearchCustomersResponse,
+  IngestBatchRequest,
+  IngestBatchResponse,
+} from '@/types/api';
 
-// Types
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
+class ApiClient {
+  private baseUrl: string;
 
-export interface LoginResponse {
-  token: string;
-}
-
-export interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  createdAt: string;
-}
-
-export interface Policy {
-  id: string;
-  policyNumber: string;
-  type: string;
-  premium: number;
-  status: 'Active' | 'Expired' | 'Cancelled';
-  startDate: string;
-  endDate: string;
-}
-
-// Mock data
-const mockCustomers: Customer[] = [
-  {
-    id: '1',
-    name: 'John Doe',
-    email: 'john.doe@email.com',
-    phone: '+91-9876543210',
-    createdAt: '2024-01-15'
-  },
-  {
-    id: '2',  
-    name: 'Jane Smith',
-    email: 'jane.smith@email.com',
-    phone: '+91-9876543211',
-    createdAt: '2024-02-20'
-  },
-  {
-    id: '3',
-    name: 'Mike Johnson',
-    email: 'mike.johnson@email.com', 
-    phone: '+91-9876543212',
-    createdAt: '2024-03-10'
+  constructor() {
+    this.baseUrl = env.API_BASE_URL;
   }
-];
 
-const mockPolicies: Record<string, Policy[]> = {
-  '1': [
-    {
-      id: '1',
-      policyNumber: 'POL-2024-001',
-      type: 'Health Insurance',
-      premium: 25000,
-      status: 'Active',
-      startDate: '2024-01-01',
-      endDate: '2024-12-31'
-    },
-    {
-      id: '2', 
-      policyNumber: 'POL-2024-002',
-      type: 'Life Insurance',
-      premium: 15000,
-      status: 'Active',
-      startDate: '2024-01-01',
-      endDate: '2024-12-31'
-    }
-  ],
-  '2': [
-    {
-      id: '3',
-      policyNumber: 'POL-2024-003', 
-      type: 'Vehicle Insurance',
-      premium: 12000,
-      status: 'Active',
-      startDate: '2024-02-01',
-      endDate: '2025-01-31'
-    }
-  ],
-  '3': [
-    {
-      id: '4',
-      policyNumber: 'POL-2024-004',
-      type: 'Home Insurance', 
-      premium: 8000,
-      status: 'Expired',
-      startDate: '2023-03-01',
-      endDate: '2024-02-29'
-    }
-  ]
-};
-
-// API functions
-export const api = {
-  login: async (data: LoginRequest): Promise<LoginResponse> => {
-    if (env.USE_MOCKS) {
-      // Mock: accept any email/password
-      return { token: 'mock-token-' + Date.now() };
-    }
+  private async makeRequest<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const { token, clearToken } = useAuthStore.getState();
     
-    const response = await fetch(`${env.API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    
-    if (!response.ok) throw new Error('Login failed');
-    return response.json();
-  },
+    const url = `${this.baseUrl}${endpoint}`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string>),
+    };
 
-  searchCustomers: async (by: 'id' | 'phone' | 'name', query: string): Promise<Customer[]> => {
-    if (env.USE_MOCKS) {
-      return mockCustomers.filter(customer => {
-        const value = customer[by === 'id' ? 'id' : by === 'phone' ? 'phone' : 'name'].toLowerCase();
-        return value.includes(query.toLowerCase());
+    // Add auth header if token exists and this isn't the login endpoint
+    if (token && !endpoint.includes('/auth/login')) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
       });
-    }
-    
-    const token = auth.getToken();
-    const response = await fetch(`${env.API_BASE_URL}/customers/search?by=${by}&q=${query}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (!response.ok) throw new Error('Search failed');
-    return response.json();
-  },
 
-  getCustomerPolicies: async (customerId: string): Promise<Policy[]> => {
-    if (env.USE_MOCKS) {
-      return mockPolicies[customerId] || [];
+      // Handle 401 - clear token and redirect to login
+      if (response.status === 401) {
+        clearToken();
+        window.location.href = '/admin/login';
+        throw new Error('Authentication failed');
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error(`API Error for ${endpoint}:`, error);
+      throw error;
     }
-    
-    const token = auth.getToken();
-    const response = await fetch(`${env.API_BASE_URL}/customers/${customerId}/policies`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (!response.ok) throw new Error('Failed to fetch policies');
-    return response.json();
   }
-};
+
+  async login(data: LoginRequest): Promise<LoginResponse> {
+    return this.makeRequest<LoginResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCompanies(): Promise<Company[]> {
+    return this.makeRequest<Company[]>('/companies');
+  }
+
+  async searchCustomers(query: string, companyId: string): Promise<Customer[]> {
+    const params = new URLSearchParams({ q: query, company_id: companyId });
+    const response = await this.makeRequest<SearchCustomersResponse>(`/customers/search?${params}`);
+    return response.customers || [];
+  }
+
+  async getCustomer(id: string, companyId: string): Promise<Customer> {
+    const params = new URLSearchParams({ company_id: companyId });
+    return this.makeRequest<Customer>(`/customers/${id}?${params}`);
+  }
+
+  async getPolicies(customerId: string, companyId: string): Promise<Plan[]> {
+    const params = new URLSearchParams({ company_id: companyId });
+    return this.makeRequest<Plan[]>(`/customers/${customerId}/policies?${params}`);
+  }
+
+  async ingestBatch(data: IngestBatchRequest, companyId: string): Promise<IngestBatchResponse> {
+    const params = new URLSearchParams({ company_id: companyId });
+    return this.makeRequest<IngestBatchResponse>(`/ingest/batch?${params}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+}
+
+// Export singleton instance
+export const api = new ApiClient();
+
+// Re-export types for backward compatibility
+export type { Customer, Plan, Company, LoginRequest, LoginResponse } from '@/types/api';
